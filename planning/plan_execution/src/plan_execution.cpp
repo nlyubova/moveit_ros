@@ -281,10 +281,10 @@ bool plan_execution::PlanExecution::isRemainingPathValid(const ExecutableMotionP
     for (std::size_t i = std::max(path_segment.second - 1, 0) ; i < wpc ; ++i)
     {
       collision_detection::CollisionResult res;
-      if (acm)
-        plan.planning_scene_->checkCollisionUnpadded(req, res, t.getWayPoint(i), *acm);
-      else
-        plan.planning_scene_->checkCollisionUnpadded(req, res, t.getWayPoint(i));
+      //if (acm)
+        //plan.planning_scene_->checkCollisionUnpadded(req, res, t.getWayPoint(i), *acm);
+      //else
+        //plan.planning_scene_->checkCollisionUnpadded(req, res, t.getWayPoint(i));
 
       if (res.collision || !plan.planning_scene_->isStateFeasible(t.getWayPoint(i), false))
       {

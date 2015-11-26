@@ -234,7 +234,7 @@ bool ApproachAndTranslateStage::evaluate(const ManipulationPlanPtr &plan) const
                                                                      max_step_, jump_factor_, approach_validCallback);
 
       // if we were able to follow the approach direction for sufficient length, try to compute a retreat direction
-      if (d_approach > plan->approach_.min_distance && !signal_stop_)
+      if (d_approach > plan->approach_.min_distance/2.0 && !signal_stop_)
       {
         if (plan->retreat_.desired_distance > 0.0)
         {

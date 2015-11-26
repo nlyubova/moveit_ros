@@ -507,6 +507,19 @@ void move_group::MoveGroupPickPlaceAction::fillGrasps(moveit_msgs::PickupGoal& g
 
   if (goal.possible_grasps.empty())
   {
+    //figure out the end-effector
+    if (goal.end_effector.empty() && !goal.group_name.empty())
+    {
+      const robot_model::JointModelGroup *jmg = lscene->getRobotModel()->getJointModelGroup(goal.group_name);
+      if (!jmg)
+        ROS_WARN_STREAM_NAMED("move_group", "Invalid group name '" << moveit_msgs::MoveItErrorCodes::INVALID_GROUP_NAME << "'");
+      else
+      {
+        const std::vector<std::string> &eefs = jmg->getAttachedEndEffectorNames();
+        if (!eefs.empty())
+          goal.end_effector = eefs.front();
+      }
+    }
     ROS_DEBUG_NAMED("manipulation", "Using default grasp poses");
     goal.minimize_object_distance = true;
 
@@ -514,34 +527,62 @@ void move_group::MoveGroupPickPlaceAction::fillGrasps(moveit_msgs::PickupGoal& g
     // \todo add more!
     moveit_msgs::Grasp g;
     g.grasp_pose.header.frame_id = goal.target_name;
-    g.grasp_pose.pose.position.x = -0.2;
+    g.grasp_pose.pose.position.x = 0.07;
     g.grasp_pose.pose.position.y = 0.0;
-    g.grasp_pose.pose.position.z = 0.0;
+    g.grasp_pose.pose.position.z = 0.125;
     g.grasp_pose.pose.orientation.x = 0.0;
     g.grasp_pose.pose.orientation.y = 0.0;
     g.grasp_pose.pose.orientation.z = 0.0;
     g.grasp_pose.pose.orientation.w = 1.0;
+    g.grasp_pose.header.stamp = ros::Time::now();
+    collision_detection::World::ObjectConstPtr object = lscene->getWorld()->getObject(goal.target_name);
+    if (object && !object->shape_poses_.empty())
+      tf::poseEigenToMsg(object->shape_poses_[0], g.grasp_pose.pose);
 
     g.pre_grasp_approach.direction.header.frame_id = lscene->getPlanningFrame();
-    g.pre_grasp_approach.direction.vector.x = 1.0;
-    g.pre_grasp_approach.min_distance = 0.1;
+    g.pre_grasp_approach.direction.vector.x = 0;
+    g.pre_grasp_approach.direction.vector.y = 0;
+    g.pre_grasp_approach.direction.vector.z = -1;
+    g.pre_grasp_approach.min_distance = 0.06;
     g.pre_grasp_approach.desired_distance = 0.2;
+    g.pre_grasp_approach.direction.header.stamp = ros::Time::now();
 
     g.post_grasp_retreat.direction.header.frame_id = lscene->getPlanningFrame();
-    g.post_grasp_retreat.direction.vector.z = 1.0;
-    g.post_grasp_retreat.min_distance = 0.1;
+    g.post_grasp_retreat.direction.vector.x = 0;
+    g.post_grasp_retreat.direction.vector.y = 0;
+    g.post_grasp_retreat.direction.vector.z = 1;
+    g.post_grasp_retreat.min_distance = 0.06;
     g.post_grasp_retreat.desired_distance = 0.2;
+    g.post_grasp_retreat.direction.header.stamp = ros::Time::now();
 
     if (lscene->getRobotModel()->hasEndEffector(goal.end_effector))
     {
-      g.pre_grasp_posture.joint_names = lscene->getRobotModel()->getEndEffector(goal.end_effector)->getJointModelNames();
+      //g.pre_grasp_posture.joint_names = lscene->getRobotModel()->getEndEffector(goal.end_effector)->getJointModelNames();
+
+      g.pre_grasp_posture.joint_names.resize(1);
+      std::vector<std::string> joint_names = lscene->getRobotModel()->getEndEffector(goal.end_effector)->getJointModelNames();
+      for (std::vector<std::string>::iterator joint_name_i = joint_names.begin(); joint_name_i != joint_names.end(); ++joint_name_i)
+        if (*joint_name_i == "LHand")
+          g.pre_grasp_posture.joint_names[0] = "LHand";
+        else if (*joint_name_i == "RHand")
+          g.pre_grasp_posture.joint_names[0] = "RHand";
+
+      g.pre_grasp_posture.header.stamp = ros::Time::now();
+      g.pre_grasp_posture.header.frame_id = lscene->getPlanningFrame();
       g.pre_grasp_posture.points.resize(1);
-      g.pre_grasp_posture.points[0].positions.resize(g.pre_grasp_posture.joint_names.size(), std::numeric_limits<double>::max());
+      g.pre_grasp_posture.points[0].positions.resize(g.pre_grasp_posture.joint_names.size());
+      g.pre_grasp_posture.points[0].positions[0] = 1.0;
 
       g.grasp_posture.joint_names = g.pre_grasp_posture.joint_names;
+      g.grasp_posture.header.stamp = ros::Time::now();
+      g.grasp_posture.header.frame_id = lscene->getPlanningFrame();
       g.grasp_posture.points.resize(1);
-      g.grasp_posture.points[0].positions.resize(g.grasp_posture.joint_names.size(), -std::numeric_limits<double>::max());
+      g.grasp_posture.points[0].positions.resize(g.grasp_posture.joint_names.size(), 0.0);
+      g.grasp_posture.points[0].positions[0] = 0.0;
     }
+    std::vector<std::string> allowed_touch_objects(1);
+    allowed_touch_objects[0] = goal.target_name;
+    g.allowed_touch_objects = allowed_touch_objects;
     goal.possible_grasps.push_back(g);
   }
 }
